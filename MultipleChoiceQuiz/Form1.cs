@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
@@ -13,13 +14,13 @@ namespace MultipleChoiceQuiz
   public partial class Form1 : Form
   {
     private List<RadioButton> QuizButtons;
-    private List<Question> QuizQuestions;
-    private int currentQuestionNumber;
-    private int score = 0;
+    private QuestionBank QuizQuestionSet;
 
     public Form1()
     {
       InitializeComponent();
+
+      QuizQuestionSet = new QuestionBank();
 
       QuizButtons = new List<RadioButton>
       {
@@ -27,59 +28,87 @@ namespace MultipleChoiceQuiz
       };
 
       string questionText = "What is the fastest animal?";
-      string questionAnswer = "Peregrine falcon"; // fun fact: the common pigion's average speed, which it can fly for 600-700 miles in a single day, is faster then a cheetah can sprint. Pigeons are the fastest animal in the world when you aren't counting cheaters who make gravity do all the work.
+      string questionAnswer = "Peregrine falcon"; // fun fact: the common pigion's average speed, which it can fly for 600-700 miles in a single day, is faster then a cheetah can sprint. Pigeons are potentially the fastest animal in the world (it's actually really hard to verify this? They are the fastest verified right now, but that's because we can race them which you really can't do with, say, bats.) when you aren't counting cheaters who make gravity do all the work.
       List<string> wrongAnswers = new List<string> { "Cheetah", "Tardigrade", "Black marlin" };
 
-      Question q1 = new Question(questionText, questionAnswer, wrongAnswers);
+      Question q1 = new Question(questionText, questionAnswer, wrongAnswers, 5);
 
       questionText = "What is the longest animal?";
       questionAnswer = "Lion's mane jellyfish";
       wrongAnswers = new List<string> { "Blue whale", "Tardigrade", "Giant Squid" };
 
-      Question q2 = new Question(questionText, questionAnswer, wrongAnswers);
+      Question q2 = new Question(questionText, questionAnswer, wrongAnswers, 10);
 
       questionText = "What has the largest specimen?";
       questionAnswer = "Honey Fungis"; // Yes I realize that "largest" isn't super clear on if I mean area, volume, or mass, and that a case for Pando being larger then the humongus fungis could be made, and since I included a blue whale as an option I really should include that one colony of sea grass (why is pando the only one of these things to get a convenient name?), but I like the honey fungis and while it safe to say that the honey fungus' 2200 acers (also acers are a terrible mesurement, 4840 yards^2? What? Who hurt you imperial system?) dwarfs pando's measly 106 and the only way the tree can compete is by throwing it's weight around, I don't know any dimention of the sea grass colony save the length, so I don't actually know how it compares 
-      wrongAnswers = new List<string> { "Aspen Tree", "Blue Whale", "Giant Sequoia" };
+      wrongAnswers = new List<string> { "Aspen Tree", "Blue Whale", "Giant Sequoia"};
 
-      Question q3 = new Question(questionText, questionAnswer, wrongAnswers);
+      Question q3 = new Question(questionText, questionAnswer, wrongAnswers, 15);
 
-      QuizQuestions = new List<Question> { q1, q2, q3 };
+      List<Question> QuizQuestions = new List<Question> { q1, q2, q3 };
+      QuizQuestionSet.Questions.AddRange(QuizQuestions);
      }
 
-    private void Form1_Load(object sender, EventArgs e)
+    private void txtUserName_KeyUp(object sender, KeyEventArgs e)
     {
-      btnNext.Enabled = false;
-      btnCheckAnswer.Focus();
-      DisplayQuestion(currentQuestionNumber);
+      if (e.KeyCode == Keys.Enter)   // Only want to respond to Enter key events
+      {
+        string userName = txtUserName.Text;
+
+        if (String.IsNullOrWhiteSpace(userName))
+        {
+          return;   // Ignore empty strings
+        }
+
+        // Set the user's name for this quiz
+        QuizQuestionSet.UserName = userName;
+
+        // Disable the TextBox to preserve the user's name
+        txtUserName.Enabled = false;
+
+        // Enable all of the RadioButton controls
+        foreach (RadioButton rb in QuizButtons)
+        {
+          rb.Enabled = true;
+        }
+
+        // Enable the check answer button and focus on it
+        btnCheckAnswer.Enabled = true;
+        btnCheckAnswer.Focus();
+
+        // Start quiz
+        DisplayQuestion();
+      }
     }
 
     private void btnCheckAnswer_Click(object sender, EventArgs e)
     {
       // Gets the user's answer and checks to see if it is correct.
-      Question currentQuestion = QuizQuestions[currentQuestionNumber];
+      Question question = QuizQuestionSet.CurrentQuestion;
+
+      if(question == null) { return; }
 
       foreach (RadioButton rb in QuizButtons)
       {
         if (rb.Checked == true)
         {
-          currentQuestion.UserAnswer = rb.Text;
+          question.UserAnswer = rb.Text;
         }
       }
-      if (currentQuestion.UserAnswer == null)
+      if (question.UserAnswer == null)
       {
         MessageBox.Show("Please select an answer before proceeding.", "Error");
       }
       else
       {
-        if (currentQuestion.IsCorrect())
+        QuizQuestionSet.ScoreCurrentQuestion();
+        if (question.IsCorrect)
         {
           lblAnswer.Text = "Correct!";
-          score++;
         }
         else
         {
-          lblAnswer.Text = $"Incorrect. The answer is {currentQuestion.CorrectAnswer}";
+          lblAnswer.Text = $"Incorrect. The answer is {question.CorrectAnswer}";
         }
         btnCheckAnswer.Enabled = false;
         btnNext.Enabled = true;
@@ -87,10 +116,10 @@ namespace MultipleChoiceQuiz
       }
     }
 
-    private void DisplayQuestion(int questionNumber)
+    private void DisplayQuestion()
     {
       // Gets the question for the index passed to it, sets question label and radio button's text accordingly.
-      Question question = QuizQuestions[questionNumber];
+      Question question = QuizQuestionSet.Next;
       List<string> answers = question.AllAnswers;
 
       lblAnswer.Text = "Please select an answer.";
@@ -108,19 +137,29 @@ namespace MultipleChoiceQuiz
     private void btnNext_Click(object sender, EventArgs e)
     {
       // Ups the question counter, checks if there's more questions, either continues the quiz or ends it.
-      currentQuestionNumber++;
-      if(currentQuestionNumber < QuizQuestions.Count)
+      
+      if(!QuizQuestionSet.QuizOver)
       {
-        DisplayQuestion(currentQuestionNumber);
+        DisplayQuestion();
         btnNext.Enabled = false;
         btnCheckAnswer.Enabled = true;
         btnCheckAnswer.Focus();
       }
       else
       {
-        MessageBox.Show($"End of quiz! Your score is {score} / {QuizQuestions.Count}", "IT'S OVER");
+        ShowResults();
+        btnNext.Enabled = false;
+        btnCheckAnswer.Enabled = true;
+        btnCheckAnswer.Focus();
       }
-      btnNext.Enabled = false;
+    }
+
+    private void ShowResults()
+    {
+      // Get score and total points from QuizQuestionSet
+      string results = $"{QuizQuestionSet.UserName}, you scored {QuizQuestionSet.Score} out of " +
+          $"{QuizQuestionSet.AvailablePoints} points";
+      MessageBox.Show(results, "Quiz Results!");
     }
   }
 }

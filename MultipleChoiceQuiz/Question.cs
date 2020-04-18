@@ -12,7 +12,20 @@ namespace MultipleChoiceQuiz
     public string CorrectAnswer { get; set; }
     public string UserAnswer { get; set; }
     public List<string> WrongAnswers { get; set; }
-    public int Points { get; set; }
+    private int points;
+    public int Points 
+    { get { return points; } set
+      {
+        if (value < 0)
+        {
+          throw new System.ArgumentOutOfRangeException("Point value cannot be negative.");
+        }
+        else
+        {
+          points = value;
+        }
+      } 
+    }
     public bool Scored { get; set; } = false;
 
     public Question (string questionText, string correctAnswer, List<string> wrongAnswers, int points = 1)
@@ -20,6 +33,15 @@ namespace MultipleChoiceQuiz
       QuestionText = questionText;
       CorrectAnswer = correctAnswer;
       WrongAnswers = wrongAnswers;
+      Points = points;
+    }
+
+    public bool IsCorrect
+    {
+      get
+      {
+        return UserAnswer == CorrectAnswer;
+      }
     }
 
     public List<string> AllAnswers
@@ -41,11 +63,6 @@ namespace MultipleChoiceQuiz
         }
         return shuffledAnswers;
       }
-    }
-
-    public bool IsCorrect()
-    {
-      return (UserAnswer == CorrectAnswer);
     }
   }
 }
