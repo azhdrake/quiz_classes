@@ -45,14 +45,7 @@ namespace MultipleChoiceQuiz
 
     public bool IsCorrect()
     {
-      if(UserAnswer == CorrectAnswer)
-      {
-        return true;
-      }
-      else
-      {
-        return false;
-      }
+      return (UserAnswer == CorrectAnswer);
     }
   }
 }
